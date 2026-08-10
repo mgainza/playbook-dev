@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Frontend Architecture & Best Practices Cheatsheet</title>
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --card-bg: #1e293b;
+      --accent: #38bdf8;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --border-color: #334155;
+      --code-bg: #090d16;
+      --tag-bg: #1e3a8a;
+      --tag-text: #60a5fa;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      line-height: 1.6;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 2.5rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1.5rem;
+    }
+
+    h1 {
+      font-size: 2.25rem;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+    }
+
+    p.subtitle {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .badge {
+      background-color: var(--tag-bg);
+      color: var(--tag-text);
+      font-size: 0.75rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 9999px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    ul, ol {
+      padding-left: 1.25rem;
+      margin-bottom: 1rem;
+    }
+
+    li {
+      margin-bottom: 0.5rem;
+    }
+
+    strong {
+      color: #fff;
+    }
+
+    code {
+      background-color: var(--code-bg);
+      color: #f43f5e;
+      padding: 0.2rem 0.4rem;
+      border-radius: 0.25rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.9em;
+    }
+
+    pre {
+      background-color: var(--code-bg);
+      padding: 1rem;
+      border-radius: 0.5rem;
+      overflow-x: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.875rem;
+      color: #e2e8f0;
+      border: 1px solid var(--border-color);
+      margin-top: 0.75rem;
+    }
+
+    .rule-box {
+      background-color: rgba(56, 189, 248, 0.1);
+      border-left: 4px solid var(--accent);
+      padding: 0.75rem 1rem;
+      margin: 1rem 0;
+      border-radius: 0 0.5rem 0.5rem 0;
+    }
+
+    @media (min-width: 768px) {
+      .grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .full-width {
+        grid-column: span 2;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>Frontend Architecture & React Native / Web Playbook</h1>
+      <p class="subtitle">Guía práctica de patrones de diseño, separación de responsabilidades y compatibilidad multiplataforma.</p>
+    </header>
+
+    <div class="grid" id="cheatsheets-container">
+      <!-- Los ítems se cargan dinámicamente o podés dejarlos estáticos -->
+    </div>
+  </div>
+
+  <script>
+    const cheatsheets = [
+      {
+        title: "1. Separación Lógica vs. Vista (Custom Hooks)",
+        category: "Arquitectura",
+        fullWidth: false,
+        content: `
+          <p>Aplica el principio de <strong>Responsabilidad Única (SRP)</strong> dividiendo el componente en dos capas:</p>
+          <ul>
+            <li><strong>Custom Hook (<code>useXxx</code>):</strong> Maneja estados (<code>useState</code>), efectos (<code>useEffect</code>), validaciones, formateos y llamadas a API. Es la capa de dominio/servicio.</li>
+            <li><strong>Componente UI (<code>XxxField</code> / <code>XxxView</code>):</strong> Recibe un DTO de props y retorne JSX. No calcula reglas de negocio ni maneja lógica asíncrona.</li>
+          </ul>
+          <div class="rule-box">
+            <strong>Regla de oro:</strong> Si tiene hooks complejos o lógica condicional de negocio, extraelo a un custom hook. Facilita los Unit Tests sin necesidad de renderizar UI.
+          </div>
+        `
+      },
+      {
+        title: "2. Extensión Web vs. Native (.web.tsx)",
+        category: "Multiplataforma",
+        fullWidth: false,
+        content: `
+          <p>Evita romper builds en Web por importaciones de módulos nativos incompilables (ej. <code>@react-native-community/datetimepicker</code>):</p>
+          <ul>
+            <li><strong>NUNCA uses ternarios binarios:</strong> <code>Platform.OS === 'web' ? &lt;Web /&gt; : &lt;Native /&gt;</code> en el mismo archivo. La importación nativa igual entrará al bundle web y fallará al inicializar.</li>
+            <li><strong>Aprovecha el bundler (Metro/Webpack):</strong> Separa en <code>Component.tsx</code> (Nativo) y <code>Component.web.tsx</code> (Web). El bundler descartará la rama no utilizada.</li>
+          </ul>
+        `
+      },
+      {
+        title: "3. Inversión de Control con Slots (children)",
+        category: "Patrones UI",
+        fullWidth: false,
+        content: `
+          <p>Usa la prop <code>children</code> para inyectar comportamiento específico en contenedores compartidos:</p>
+          <ul>
+            <li>Cuando el layout visual (labels, bordes, errores) sea idéntico pero la interacción interna cambie según plataforma o contexto.</li>
+            <li>Permite que el componente presentacional no sepa qué selector o entrada se está usando internamente.</li>
+          </ul>
+          <pre><code>&lt;DateField {...props}&gt;
+  {/* El slot inyecta el control adecuado */}
+  {isWeb ? &lt;input type="date" /&gt; : &lt;DateTimePicker /&gt;}
+&lt;/DateField&gt;</code></pre>
+        `
+      },
+      {
+        title: "4. Manejo Seguro de Modulos Desconocidos / Null Checks",
+        category: "Debugging",
+        fullWidth: false,
+        content: `
+          <p>Causa común del error <em>"Element type is invalid: expected a string/class but got: object/undefined"</em>:</p>
+          <ul>
+            <li><strong>Causa 1:</strong> Módulo nativo no soportado en web importado globalmente.</li>
+            <li><strong>Causa 2:</strong> Mezcla entre <code>export default</code> y <code>export const</code> (named import).</li>
+            <li><strong>Causa 3:</strong> Dependencia circular causada por re-exportar desde archivos de índice (<code>barrel files</code>).</li>
+          </ul>
+          <div class="rule-box">
+            <strong>Solución:</strong> Importa siempre por ruta directa (ej. <code>../InputWrapper</code>) dentro de la misma carpeta de componentes para evitar dependencias circulares.
+          </div>
+        `
+      },
+      {
+        title: "5. Estructura de Archivos Recomendada (3 Capas)",
+        category: "Estructura",
+        fullWidth: true,
+        content: `
+          <p>Patrón multiescena para componentes complejos de formulario o UI avanzada:</p>
+          <pre><code>components/date-picker/
+├── useDateField.ts      --> Lógica pura (Estado de UI, hooks y reglas)
+├── DateField.tsx        --> Presentación pura (Labels, bordes, wrapper, mensaje de error)
+├── DatePicker.tsx       --> Integración Nativa (iOS / Android)
+└── DatePicker.web.tsx   --> Integración Web (HTML5 nativo u omisión de librerías móviles)</code></pre>
+        `
+      }
+    ];
+
+    function renderCheatsheets() {
+      const container = document.getElementById('cheatsheets-container');
+      container.innerHTML = cheatsheets.map(item => `
+        <div class="card ${item.fullWidth ? 'full-width' : ''}">
+          <div class="card-header">
+            <h2 class="card-title">${item.title}</h2>
+            <span class="badge">${item.category}</span>
+          </div>
+          <div>${item.content}</div>
+        </div>
+      `).join('');
+    }
+
+    renderCheatsheets();
+  </script>
+</body>
+</html>
