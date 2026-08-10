@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Frontend Architecture &amp; Best Practices Cheatsheet</title>
+  <title>Arquitectura Frontend &amp; React — Notas</title>
   <style>
     /* ==========================================================================
        Notas técnicas — hoja de estilos
@@ -723,91 +723,187 @@
 
   <div class="container">
     <header>
-      <h1>Frontend Architecture &amp; React Native / Web Playbook</h1>
-      <p class="subtitle">Guía práctica de patrones de diseño, separación de responsabilidades y compatibilidad multiplataforma.</p>
+      <h1>Arquitectura Frontend &amp; React</h1>
+      <p class="subtitle">Notas de trabajo sobre separación de responsabilidades, composición, manejo de estado y organización de código.</p>
     </header>
 
     <div class="grid" id="cheatsheets-container">
 
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">1. Separación Lógica vs. Vista (Custom Hooks)</h2>
+          <h2 class="card-title">1. Separar la lógica de la presentación</h2>
           <span class="badge">Arquitectura</span>
         </div>
         <div class="card-body">
-          <p>Aplica el principio de <strong>Responsabilidad Única (SRP)</strong> dividiendo el componente en dos capas:</p>
+          <p>Un componente que maneja estado, efectos, validación y render a la vez solo se puede probar renderizándolo. Partirlo en dos capas rompe esa dependencia:</p>
           <ul>
-            <li><strong>Custom Hook (<code>useXxx</code>):</strong> Maneja estados (<code>useState</code>), efectos (<code>useEffect</code>), validaciones, formateos y llamadas a API. Es la capa de dominio/servicio.</li>
-            <li><strong>Componente UI (<code>XxxField</code> / <code>XxxView</code>):</strong> Recibe un DTO de props y retorne JSX. No calcula reglas de negocio ni maneja lógica asíncrona.</li>
+            <li><strong>Custom hook (<code>useAlgo</code>):</strong> estado (<code>useState</code>), efectos, validación, formateo y llamadas a la API. Es la capa de dominio y se prueba como una función.</li>
+            <li><strong>Componente de presentación:</strong> recibe props y devuelve JSX. No decide reglas de negocio ni dispara trabajo asíncrono.</li>
           </ul>
+          <pre data-lang="tsx"><code>// Lógica: testeable sin montar nada
+function useSearch(query: string) {
+  const [results, setResults] = useState&lt;Result[]&gt;([]);
+  const [status, setStatus] = useState&lt;Status&gt;('idle');
+  // ... efectos, cancelación, normalización
+  return { results, status, isEmpty: status === 'ready' &amp;&amp; !results.length };
+}
+
+// Vista: sin lógica que valga la pena testear
+function SearchResults({ results, status, isEmpty }: Props) {
+  if (status === 'loading') return &lt;Spinner /&gt;;
+  if (isEmpty) return &lt;EmptyState /&gt;;
+  return &lt;List items={results} /&gt;;
+}</code></pre>
           <div class="rule-box">
-            <strong>Regla de oro:</strong> Si tiene hooks complejos o lógica condicional de negocio, extraelo a un custom hook. Facilita los Unit Tests sin necesidad de renderizar UI.
+            <strong>Regla de oro:</strong> si para probar una regla de negocio necesitás renderizar UI, la regla está en el lugar equivocado.
           </div>
         </div>
       </div>
 
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">2. Extensión Web vs. Native (.web.tsx)</h2>
-          <span class="badge">Multiplataforma</span>
-        </div>
-        <div class="card-body">
-          <p>Evita romper builds en Web por importaciones de módulos nativos incompilables (ej. <code>@react-native-community/datetimepicker</code>):</p>
-          <ul>
-            <li><strong>NUNCA uses ternarios binarios:</strong> <code>Platform.OS === 'web' ? &lt;Web /&gt; : &lt;Native /&gt;</code> en el mismo archivo. La importación nativa igual entrará al bundle web y fallará al inicializar.</li>
-            <li><strong>Aprovecha el bundler (Metro/Webpack):</strong> Separa en <code>Component.tsx</code> (Nativo) y <code>Component.web.tsx</code> (Web). El bundler descartará la rama no utilizada.</li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <h2 class="card-title">3. Inversión de Control con Slots (children)</h2>
+          <h2 class="card-title">2. Composición antes que configuración</h2>
           <span class="badge">Patrones UI</span>
         </div>
         <div class="card-body">
-          <p>Usa la prop <code>children</code> para inyectar comportamiento específico en contenedores compartidos:</p>
+          <p>Cuando un componente acumula props booleanas (<code>isCompact</code>, <code>hasIcon</code>, <code>showFooter</code>), el problema no son las props: es que el componente está decidiendo cosas que deberían decidirse desde afuera.</p>
           <ul>
-            <li>Cuando el layout visual (labels, bordes, errores) sea idéntico pero la interacción interna cambie según plataforma o contexto.</li>
-            <li>Permite que el componente presentacional no sepa qué selector o entrada se está usando internamente.</li>
+            <li><strong>Composición con <code>children</code>:</strong> el contenedor aporta caja, espaciado y estados de error; quien lo usa aporta el contenido.</li>
+            <li><strong>Slots con nombre:</strong> si hay varias zonas, pasarlas como props de tipo <code>ReactNode</code> (<code>header</code>, <code>actions</code>) en lugar de multiplicar banderas.</li>
+            <li><strong>Componentes compuestos:</strong> <code>Tabs</code> y <code>Tabs.Panel</code> comparten estado por contexto sin exponerlo al exterior.</li>
           </ul>
-          <pre data-lang="tsx"><code>&lt;DateField {...props}&gt;
-  {/* El slot inyecta el control adecuado */}
-  {isWeb ? &lt;input type="date" /&gt; : &lt;DateTimePicker /&gt;}
-&lt;/DateField&gt;</code></pre>
+          <pre data-lang="tsx"><code>// ✗ Cada caso nuevo agrega una prop
+&lt;Card title="Perfil" showAvatar hasFooter isCompact /&gt;
+
+// ✓ El componente aporta la caja; el uso aporta el contenido
+&lt;Card&gt;
+  &lt;Card.Header&gt;Perfil&lt;/Card.Header&gt;
+  &lt;Card.Body&gt;{children}&lt;/Card.Body&gt;
+&lt;/Card&gt;</code></pre>
+          <div class="rule-box">
+            <strong>Regla de oro:</strong> si soportar un caso de uso nuevo exige otra prop booleana, lo que falta es un punto de composición.
+          </div>
         </div>
       </div>
 
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">4. Manejo Seguro de Modulos Desconocidos / Null Checks</h2>
-          <span class="badge">Debugging</span>
+          <h2 class="card-title">3. Clasificar el estado antes de elegir herramienta</h2>
+          <span class="badge">Estado</span>
         </div>
         <div class="card-body">
-          <p>Causa común del error <em>"Element type is invalid: expected a string/class but got: object/undefined"</em>:</p>
-          <ul>
-            <li><strong>Causa 1:</strong> Módulo nativo no soportado en web importado globalmente.</li>
-            <li><strong>Causa 2:</strong> Mezcla entre <code>export default</code> y <code>export const</code> (named import).</li>
-            <li><strong>Causa 3:</strong> Dependencia circular causada por re-exportar desde archivos de índice (<code>barrel files</code>).</li>
-          </ul>
-          <div class="rule-box">
-            <strong>Solución:</strong> Importa siempre por ruta directa (ej. <code>../InputWrapper</code>) dentro de la misma carpeta de componentes para evitar dependencias circulares.
+          <p>La mayoría de las discusiones sobre "qué librería de estado usar" desaparecen al separar qué tipo de estado es cada cosa:</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Ejemplo</th>
+                <th>Dónde vive</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Local de UI</td>
+                <td>Menú abierto, foco, paso de un wizard</td>
+                <td><code>useState</code> en el componente</td>
+              </tr>
+              <tr>
+                <td>Derivado</td>
+                <td>Total del carrito, lista filtrada</td>
+                <td>Se calcula en el render</td>
+              </tr>
+              <tr>
+                <td>De servidor</td>
+                <td>Respuesta de la API</td>
+                <td>Capa de cache con revalidación</td>
+              </tr>
+              <tr>
+                <td>De URL</td>
+                <td>Filtros, paginación, tab activo</td>
+                <td>Query params</td>
+              </tr>
+              <tr>
+                <td>Global</td>
+                <td>Sesión, tema, idioma</td>
+                <td>Contexto o store</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="warning">
+            El estado derivado no se guarda: se calcula. Copiarlo con <code>useEffect</code> + <code>setState</code> agrega un render extra y una segunda fuente de verdad que tarde o temprano se desincroniza.
           </div>
         </div>
       </div>
 
-      <div class="card full-width">
+      <div class="card">
         <div class="card-header">
-          <h2 class="card-title">5. Estructura de Archivos Recomendada (3 Capas)</h2>
+          <h2 class="card-title">4. Datos remotos: modelar los cinco estados</h2>
+          <span class="badge">Datos</span>
+        </div>
+        <div class="card-body">
+          <p>Toda lectura remota tiene cinco estados posibles, y el que casi siempre falta es el cuarto:</p>
+          <ol>
+            <li>Inicial, antes de pedir nada.</li>
+            <li>Cargando.</li>
+            <li>Error, con opción de reintentar.</li>
+            <li><strong>Vacío</strong>: la petición salió bien y no hay resultados. No es lo mismo que cargando.</li>
+            <li>Con datos.</li>
+          </ol>
+          <p>Si el fetch se hace a mano, hay que ignorar las respuestas obsoletas: sin eso, una búsqueda rápida puede pintar el resultado de una consulta anterior.</p>
+          <pre data-lang="tsx"><code>useEffect(() =&gt; {
+  let cancelled = false;
+  const controller = new AbortController();
+
+  fetchResults(query, { signal: controller.signal })
+    .then(data =&gt; { if (!cancelled) setResults(data); });
+
+  return () =&gt; { cancelled = true; controller.abort(); };
+}, [query]);</code></pre>
+          <div class="tip">
+            Una capa de cache (React Query, SWR, o los loaders del framework) ya resuelve cancelación, deduplicación y revalidación. Escribir esto a mano se justifica solo en casos puntuales.
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">5. Organizar por feature, no por tipo de archivo</h2>
           <span class="badge">Estructura</span>
         </div>
         <div class="card-body">
-          <p>Patrón multiescena para componentes complejos de formulario o UI avanzada:</p>
-          <pre data-lang="estructura"><code>components/date-picker/
-├── useDateField.ts      --> Lógica pura (Estado de UI, hooks y reglas)
-├── DateField.tsx        --> Presentación pura (Labels, bordes, wrapper, mensaje de error)
-├── DatePicker.tsx       --> Integración Nativa (iOS / Android)
-└── DatePicker.web.tsx   --> Integración Web (HTML5 nativo u omisión de librerías móviles)</code></pre>
+          <p>Agrupar por tipo (<code>components/</code>, <code>hooks/</code>, <code>utils/</code>) obliga a tocar cinco carpetas para cambiar una sola funcionalidad. Agrupar por feature mantiene junto lo que cambia junto:</p>
+          <pre data-lang="estructura"><code>src/
+├── features/
+│   └── checkout/
+│       ├── components/   --> UI propia de la feature
+│       ├── hooks/        --> lógica y estado
+│       ├── api/          --> acceso a datos
+│       └── index.ts      --> única superficie pública
+├── components/           --> UI genérica, sin reglas de negocio
+└── lib/                  --> utilidades sin dependencias de UI</code></pre>
+          <ul>
+            <li>Una feature se comunica con otra solo a través de su <code>index.ts</code>.</li>
+            <li>Lo que sube a <code>components/</code> es lo que ya se usa en dos features, no lo que "quizás" se reutilice.</li>
+            <li>Si borrar una feature deja código huérfano en otra carpeta, el límite estaba mal puesto.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">6. «Element type is invalid»: importaciones rotas</h2>
+          <span class="badge">Debugging</span>
+        </div>
+        <div class="card-body">
+          <p>El error <em>"Element type is invalid: expected a string or a class/function but got: undefined"</em> casi siempre significa que el componente llegó como <code>undefined</code>. Tres causas, en orden de frecuencia:</p>
+          <ul>
+            <li><strong>Default vs. named:</strong> el módulo exporta <code>export const Button</code> y se importa como <code>import Button from</code> (o al revés).</li>
+            <li><strong>Dependencia circular:</strong> dos módulos se importan entre sí a través de un <code>index.ts</code> de re-exportación. Uno de los dos se evalúa a medias y sus exports quedan vacíos.</li>
+            <li><strong>Módulo ausente en ese entorno:</strong> el import se resuelve a <code>undefined</code> en el build (paquete solo de servidor, condición de <code>exports</code> distinta, alias mal configurado).</li>
+          </ul>
+          <div class="rule-box">
+            <strong>Solución:</strong> dentro de una misma feature, importar por ruta directa (<code>./Button</code>) en lugar de pasar por el barrel. Los barrels son para consumo externo, no para uso interno.
+          </div>
         </div>
       </div>
     </div>
